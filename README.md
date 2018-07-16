@@ -1,24 +1,14 @@
 > 背景：当项目代码量很大的时候，或者你作为一名新人要快速掌握代码的时候，给函数打上log，来了解代码执行逻辑，这种方式会显然成本太大，要改动项目编译运行，NO！太耗时；或者你想debug的方式来给你想关注的几个函数，来了解代码执行逻辑，NO！因为你肯定会漏掉函数；也许你可以固执的给你写的项目打满log说这样也行，但是你要知道你方法所调用的jdk的函数或者第三方aar或者jar再或者android sdk中的函数调用顺序你怎么办，还能打log吗？显然不行吧，来~这个项目给让可以让你以包名为过滤点过滤你想要知道所有函数调用顺序。
 
-提醒：本文以及相关库是本人原创，转载请标注原文链接。
-
 项目地址：[https://github.com/zjw-swun/AppMethodOrder](https://github.com/zjw-swun/AppMethodOrder) 欢迎star
 
-作者列表（排名按代码贡献时间顺序）：二精-霁雪清虹，xingstarx，wing，pighead4u <br>
 
-特别鸣谢 ：
-[xingstarx]() 同学 ，提供兼容mac和linux的``task AppOutPutMethodOrder``代码<br>
-他的github地址:[https://github.com/xingstarx/](https://github.com/xingstarx/) 
-<br>
-大精-[wing]() 同学，提供兼容不同版本traceview的``task AppFilterMethodOrder``代码<br>
-他的github地址：[https://github.com/githubwing](https://github.com/githubwing)<br>
-[pighead4u]()同学，提供的``task AppOutPutMethodOrder`` ``task AppFilterMethodOrder``groovy语法重构<br>
-他的github地址，[https://github.com/pighead4u](https://github.com/pighead4u)<br>
+作者列表（排名按代码贡献时间顺序）：二精-霁雪清虹，xingstarx，大精-wing，pighead4u ，Tesla ,lijunjie，三精-虹猫，Harlber
 
 
 # 1. 效果奉上
 
-![3.gif](http://upload-images.jianshu.io/upload_images/1857887-eb619b1815d64ba3.gif?imageMogr2/auto-orient/strip)
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/1.gif)
 
 动作简介：首先点击MainActivity的自定义MyTextView然后进入SecondActivity再点击textview之后finish跳转回MainActivity<br>
 下面是库处理过所得到的函数调用顺序``order.txt``文件（我这里屏蔽了jdk函数，第三方库函数，以及android sdk中函数，换句话说我就保留了我自己包名中的函数顺序）
@@ -69,179 +59,86 @@
 832 ent   6127679 .........com.zjw.appmethodorder.BaseActivity.onDestroy ()V	BaseActivity.java
 832 ent   6133301 ..........com.zjw.appmethodorder.BaseActivity.baseOnDestroy ()V	BaseActivity.java
 ```
-OK！发现是不是很炫酷啊，下面来介绍该库的原理（求star!!!）
-# 2 原理
-本库其实并没有什么黑科技，本库也没有java代码，核心就是2个build.gradle中的task。首先，原理就是基于android sdk中提供的工具----traceview，和dmtracedump。traceview会生成.trace文件，该文件记录了函数调用顺序，函数耗时，函数调用次数等等有用的信息。而dmtracedump 工具就是基于trace文件生成报告的工具，具体用法不细说。dmtracedump 工具大家一般用的多的选项就是生成html报告，或者生成调用顺序图片（看起来很不直观）。首先说说为什么要用traceview，和dmtracedump来作为得到函数调用顺序的，因为这个工具既然能知道cpu执行时间和调用次数以及函数调用树（看出函数调用顺序很费劲）比如android studio是这样呈现.trace文件的解析视图的
 
-![QQ图片20170326000536.png](http://upload-images.jianshu.io/upload_images/1857887-96b3cc96d35f9a3f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-或者这样的
+# 2. 原理篇
+原理就是基于android sdk中提供的工具----traceview，和dmtracedump。traceview会生成.trace文件，该文件记录了函数调用顺序，函数耗时，函数调用次数等等有用的信息。而dmtracedump 工具就是基于trace文件解析生成报告的工具,好在花了一些时间发现dmtracedump -o 选项，经过研究发现，这玩意输出的内容居然是按逻辑顺序从上到下的。
 
-![QQ图片20170326000715.png](http://upload-images.jianshu.io/upload_images/1857887-8579d47f882d95ce.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-(上面这张图是网上找的，侵删)
-用上面这2个图发现你要清晰知道函数调用看懂了才是见鬼了。或者使用dmtracedump 工具解析生成的html长下面这样（dmtracedump 生成图片就不说了 生成出的图片也根本看不出顺序这个就略过了）
+# 3. 使用方法（**建议使用小工具，废弃原有的两个gradle Task**）
 
-![QQ图片20170326001217.png](http://upload-images.jianshu.io/upload_images/1857887-9456bc40135a7746.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-一开始我以为 Method 序列号有戏于是乎冲动的我把带序号的东西内容复制出来写了一个脚本对他们进行排序代码如下：
+**注意：请先确保 anroid sdk 中的dmtracedump 工具加入在你的环境变量中**
+
+熟悉appMethodOrder的朋友以前用的是两个gradle Task，由于android studio 3.0掐表操作生成的``.trace``文件改变了生成位置，android studio 3.0以下版本，默认产生在项目目录\capture\时间.trace，而到了android studio 3.0，windows用户trace文件生成目录以本人为例为：``C:\Users\hasee\AppData\Local\Temp\cpu_trace.trace``,所以以前用的是两个gradle Task，已经不再适应，考虑到扩展性，**建议使用小工具**
+
+ 
+## 3.1 生成trace文件的方式
+生成trace文件的方式有2种一种是``掐表``操作，一种是在项目中使用代码操作<br>
+先介绍掐表生成trace文件<br>
+**android studio 3.0以下版本操作如下**<br>
+第一次点击下图时钟icon代表开始掐表，然后回到您的app，进行您要跟踪函数调用顺序的操作，再次点击下图时钟icon代表结束掐表
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/0.png)
+掐表结束后即会在captures目录生成``com.zjw.appmethodorder_2017.03.25_21.41.trace``文件，android studio会默认打开一个可视化窗口
+
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/00.png)
+
+**android studio 3.0版本操作如下**<br><br>
+点击CPU 进入CPU面板，然后选择Instrumented选项（Sampled和Instrumented区别在于，Sampled函数调用采样率低生成的trace文件小，采样率低会造成大部分函数调用顺序漏记，Instrumented相当于无损采样生成文件大），第一次点击下图红色圆形icon代表开始掐表，然后回到您的app，进行您要跟踪函数调用顺序的操作，再次点击下图红色圆形icon代表结束掐表，
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/1.png)
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/2.png)
+结束掐表就会在``C:\Users\hasee\AppData\Local\Temp\cpu_trace.trace``(本人是windows环境，使用windows系统可以参照，使用Mac的同学 cd /private/var/folders在folders 搜索cpu_trace.trace)，存在cpu_trace.trace时会新建cpu_trace1.tracecpu_trace2.trace 以此类推
+
+第二种生成trace文件的方式就是在您的项目代码中使用
+``android.os.Debug.startMethodTracing();`` 和``android.os.Debug.stopMethodTracing();``，执行完``stopMethodTracing``将会在您手机app的sdcard下面生成``.trace``文件
+
+## 3.2 appMethodOrder小工具使用
+
+appMethodOrder小工具  下载地址[AppMethodOrderUtils.jar](tool/AppMethodOrderUtils.jar)
+appMethodOrder小工具  源码地址[AppMethodOrderUtils.zip](tool/AppMethodOrderUtils.zip)
+appMethodOrder小工具改良自 [https://github.com/Harlber/Method_Trace_Tool](https://github.com/Harlber/Method_Trace_Tool )
+感谢Harlber[https://github.com/Harlber](https://github.com/Harlber)
+
+将trace文件拖拽到小工具``File Path``左边区域
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/3.png)
+ ``package name``处填入您需要过滤的目标包名，或者填入空串（空串将生成所有线程所有包名的函数调用顺序）
+
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/4.png)
+
+如上图所示，查询结构存在四个tab，第一个``threadID``代表线程id，第二个``threadName``代表线程名，第三个``usecs``代表函数耗时(单位微秒，有时候耗时为-1不要惊讶，是因为该次掐表刚好没包括到其函数结束时机)，第四个``method``代表函数名+类名，（查询结果是以时间排序的）
+
+# 4. 海量信息的处理手段
+不难发现trace文件时间越长意味着记录的信息也会越来越多，这时候单纯以包名过滤其实满足不了需求，比如我们想通过3个条件（例如 主线程+含zjw包名的 or android.view）来过滤出结果，以下将给出解决办法。
+
+appMethodOrder小工具会在该jar所在目录生成``appMethodOrderTrace.txt``，以文本方式记录查询结果。
+我们可以借助数据库这个工具使用查询语句来帮助我们过滤出有用的信息，可以使用以下数据库命令，把``appMethodOrderTrace.txt``内容导入到数据库表中
+//从text 导入数据到 mysql （以下语句在mysql中实验是OK的）
 ```
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-public class Sort implements Comparable<Sort> {
-
-	static String uri = "D:/Application/eclipse/javaworkspace/Test/src/JB/1.text";
-	String str = "";
-	String content = "";
-
-	public Sort(String str,String content) {
-		super();
-		this.str = str;
-		this.content = content;
-	}
-
-	public static void main(String[] args) throws IOException {
-		// TODO Auto-generated method stub
-		
-		ArrayList<Sort> list = new ArrayList<>();
-
-		BufferedReader in = new BufferedReader(new FileReader(uri));
-		String a = "";
-
-		while ((a = in.readLine()) != null) {
-			//System.out.println(Long.valueOf(getIndexStr(a)));
-			if(a.contains("com.zjw.appmethodorder")){
-			list.add(new Sort(getIndexStr(a),a));
-			}
-		}
-		Collections.sort(list);
-		for (Sort sort : list) {
-			System.out.println(sort.content);
-		}
-	}
-
-	public static String getIndexStr(String str) {
-		String regEx = "(?<=\\[)(\\S+)(?=\\])";// 匹配[]中的数字
-		Pattern p = Pattern.compile(regEx);
-		Matcher m = p.matcher(str.trim());
-		while (m.find()) {
-			return m.group().trim();
-		}
-		return "";
-	}
-
-	@Override
-	public int compareTo(Sort o) {
-		// TODO Auto-generated method stub
-		//return 0;
-		return (int) (Long.valueOf(str) - Long.valueOf(o.str));
-	}
-
-}
+truncate table app;
+LOAD DATA LOCAL INFILE 'C:/Users/hasee/Desktop/appMethodOrderTrace.txt' INTO TABLE `app`;
 ```
-结果发现过滤后的东西序列号是按顺序的但是并不是代码执行的逻辑顺序。我擦怎么办，工具代码也写了，居然不是我想要的结果，好在花了一些时间发现dmtracedump -ho 选项，经过研究发现，这玩意输出的内容居然是按逻辑顺序从上到下的，于是基于这一点我写一个项目，其实核心就是2个task完成了了解所有函数调用顺序的目的。
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/5.png)
+
+app表结创建语句如下
 ```
-//核心任务：在captures文件目录下输出 基于最新.trace文件的函数调用信息的txt版本
-//说明：dmtracedump 为 android sdk自带工具，要执行dmtracedump命令则需要先添加环境变量
-task AppOutPutMethodOrder() {
-    doLast {
-        def capturesDirPath = project.getProjectDir().getParentFile().path + File.separator + "captures";
-        def capturesDir = new File(capturesDirPath);
-        capturesDir.traverse {
-            if (it.isFile() && it.name.endsWith(".trace")) {
-                def orderName = it.name.replace("trace", "txt")
-                def orderFile = new File(capturesDirPath, orderName)
-
-                //说明：dmtracedump 为 android sdk自带工具，要执行dmtracedump命令则需要先添加环境变量
-                def baseComand = "dmtracedump  -ho " + it.absolutePath + " >> " + orderFile.absolutePath
-                println baseComand
-                String osNameMatch = System.getProperty("os.name").toLowerCase();
-                if (osNameMatch.contains("windows")) {
-                    ("cmd /c start  /b " + baseComand).execute()
-                } else {
-                    ["bash", "-c", baseComand].execute()
-                }
-            }
-        }
-    }
-}
-
-
-
-//这里AppFilterMethodOrder 任务其实也不需要 执行找到 \captures 目录找到 base_order.txt
-//用Notepad++ 使用正则 先过滤 带 xit 的行 （我们只关注ent 行就行，ent代表进入执行函数　xit代表退出函数）再过滤掉你不关心的包名
-// Notepad++ 中过滤将会使用到的命令行如下
-//^.*xit.*$ //去除掉 含有 xit 字符串的行  然后替换为空
-// ^((?!XXX).)*$  //去除不包含XXX的行  然后替换为空
-//^\s+   //合并空行  然后替换为空
-task AppFilterMethodOrder() {
-    doLast {
-        //TODO 替换为你想要过滤的包名
-        def filterPackageName = "com.zjw.appmethodorder"
-        //处理包名
-        def filterSignature = filterPackageName.replaceAll("[.]", "/")
-
-        def capturesDirPath = project.getProjectDir().getParentFile().path + File.separator + "captures";
-        def capturesDir = new File(capturesDirPath);
-
-        capturesDir.traverse {
-            if (it.isFile() && it.name.endsWith(".txt") && !it.name.contains("--filter")) {
-                def orderName = it.name.replace(".txt", "--filter.txt")
-                def orderFile = new File(capturesDirPath, orderName)
-
-                it.eachLine { line ->
-
-                    if (line.contains(" ent ")
-                        //兼容不同版本traceview 有的是方法包名有的是方法签名
-                    && (line.contains(filterPackageName)
-                    || line.contains(filterSignature))
-                    ) {
-                        println line
-                        orderFile.append(line + "\n")
-                    }
-
-                }
-            }
-        }
-
-    }
-}
+CREATE TABLE `app` (
+  `threadId` int(11) DEFAULT NULL,
+  `threadName` varchar(255) DEFAULT NULL,
+  `usecs` varchar(255) DEFAULT NULL,
+  `method` varchar(255) DEFAULT NULL,
+  `className` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 ```
+查询语句示范
+//查询main线程中 自定义包下最耗时的操作(以毫秒为单位，降序)
+SELECT
+	threadName,
+	usecs/1000, 
+	method
+FROM
+	app
+WHERE
+	app.threadName = "main" AND method like "%自定义包名%"
+ORDER BY
+	app.usecs DESC
+![图片描述](https://github.com/zjw-swun/AppMethodOrder/blob/master/images/6.png)
 
-# 3.如何使用
-讲了一堆原理我们来说说这个库怎么用吧。
-
-注意：请先确保 anroid sdk 中的dmtracedump 工具加入在你的环境变量中(Mac同学因为task面板执行的bug 需要把gradle添加到环境变量中)
-
-首先编译运行项目，然后点击下图的时钟（这是使用工具打trace start 和 end）进行操作，可以参考上文所说的动作简介（记住你操作想想你的生命周期函数调用顺序，待会可以和生成的captures目录下base_order.txt或者生成的order.txt中的函数顺序做做对比）然后再点一次下图那个时钟。还有一种记录trace start 和 end的方式就是在修改代码,即使用``android.os.Debug.startMethodTracing();``和``android.os.Debug.stopMethodTracing();``
-![QQ图片20170326003311.png](http://upload-images.jianshu.io/upload_images/1857887-f4fa08b1a34858b3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-以上操作完成后即会在captures目录生成``com.zjw.appmethodorder_2017.03.25_21.41.trace``文件，android studio会默认打开一个可视化窗口
-
-![QQ图片20170326003945.png](http://upload-images.jianshu.io/upload_images/1857887-92566765ccfa0d1a.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-然后双击右侧面板的 ``AppOutPutMethodOrder``任务 （特别注意：用Mac的同学注意了，现在已知双击执行task会输出空文件，貌似是studio的BUG，可以使用 ``./gradlew AppOutPutMethodOrder``执行该任务）如下图
-
-![QQ图片20170327232840.png](http://upload-images.jianshu.io/upload_images/1857887-c9087359921f4bfd.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-这一步完成就将在``captures``目录生成和trace文件同名的txt文件(如示例``com.zjw.appmethodorder_2017.03.25_21.41.trace``)，该文件包含所有函数执行顺序
-
-等待任务执行完成，再双击执行``AppFilterMethodOrder``任务 （特别注意：用Mac的同学注意了，现在已知双击执行task会输出空文件，貌似是studio的BUG，可以使用 ``./gradlew AppFilterMethodOrder``执行该任务）如下图窗口
-
-![QQ图片20170326004734.png](http://upload-images.jianshu.io/upload_images/1857887-cc94b7192399ad15.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-该任务目的就是过滤其他非相关包名，留下自己包名的函数，任务执行完成将在``captures``目录生成和·``trace``文件同名+``--filter.txt``文件(例如示例``AppMethodOrder\captures\com.zjw.appmethodorder_2017.03.25_21.41--filter.txt``)
-如下图：
-
-![QQ图片20170327233401.png](http://upload-images.jianshu.io/upload_images/1857887-3356ea138e58f14a.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-
-接下来打开``trace``文件同名+``--filter.txt``文件(例如示例``AppMethodOrder\captures\com.zjw.appmethodorder_2017.03.25_21.41--filter.txt``)就是上文效果中的那样啦。
-
-# 4.关于扩展和改造
-
-![QQ图片20170327233843.png](http://upload-images.jianshu.io/upload_images/1857887-3818fa4ce352dacd.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-这里改成你想要过滤的包名即可。
+# 5. 计算得出的函数耗时不是准确的时间
+根据官方文档(https://developer.android.com/studio/profile/traceview.html) ``Interpreted code runs more slowly when profiling is enabled. Don't try to generate absolute timings from the profiler results (such as, "function X takes 2.5 seconds to run"). The times are only useful in relation to other profile output, so you can see if changes have made the code faster or slower relative to a previous profiling run.``所知(我也用了代码在函数开头结尾用System.nanoTime()时间相减，发现，生成trace的时候确实会拖慢所以函数的执行时间，比System.nanoTime()时间相减得出的时间差的比较多)。原因是trace过程会整体拖慢JVM执行，因此函数耗时只是一个参考值，比较哪个函数更耗时是可以的。
